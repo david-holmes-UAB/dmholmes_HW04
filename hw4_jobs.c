@@ -8,9 +8,33 @@
 #define TRUE 1
 #define FALSE 0
 
+
+
 // job structure to hold information about each job being run
+// Implementation inspired by work on Lab 12, which also used structures to run a program on threads
+/*
+/ W
+/
+*/
 typedef struct job {
-    
+    int jobid; // Number of job in the queue
+    char *job_comm; // The command/name of the job
+    char *status; // The status of the job e.g., Running, Waiting
+    char *outFile; // The file that stdout is redirected to <jobid>.out
+    char *errFile; // The file that stderr is redirected to <jobid>.err
+
+} job;
+
+job *init_job(int id, char *command) {
+    struct job newJob;
+
+    newJob->jobid = id;
+    newJob->job_comm = command;
+    newJob->status = "Waiting...";
+    sprintf(newJob.outFile, "%d.out", id);
+    sprintf(newJob.errFile, "%d.out", id);
+
+    return newJob;
 }
 
 void *job_handler(void *arg) {
