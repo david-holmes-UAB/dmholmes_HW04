@@ -65,6 +65,7 @@ int main(int argc, char **argv) {
     char *usr_cmd; // variable to store user command
     char *arg_cmd; // Program specified to be used by the sumbit command
     char *arg_cmdArg; // I think this variable name is funny; used if the argument has arguments
+    pthread_t tid; // obligatory tid
 
     // Job stuff
     job jobList[MAXJOBS]; // Array of all jobs
@@ -78,11 +79,21 @@ int main(int argc, char **argv) {
         printf("Too many arguments given. Usage: %s <number of cores>", argv[0]);
         exit(-1); // Exit with -1 to show issue with program
     }
-    p_cores = atoi(argv[1]); // p_cores is argv[1], which is the number of core specifed by the user
+    else if (argc < 2) {
+        printf("No core input given, defaulting to usage of P = 2 (two cores).\n");
+        p_cores = 2;
+    }
+    else {
+        p_cores = atoi(argv[1]); // p_cores is argv[1], which is the number of core specifed by the user
+    }
+
     isActive = TRUE;
     printf("Welcome. \nAvailable commands: \nsubmit <program> <arguments> | showjobs\n");
     printf("Use command 'quit' to exit.\n");
 
+    pthread_create(&tid, NULL, job_handler, NULL); // Do stuff with all the jobs while the "UI" is running
+
+    // The horrific block of user input handling
     int jobcnt = 0;
     do {
         printf("Enter command. >> ");
@@ -105,10 +116,12 @@ int main(int argc, char **argv) {
                     case poss_cmds[1]:
                     show_jobs();
                     break;
+                    // "quit"
                     case poss_cmds[2]:
                     printf("Exiting program.\n");
-                    exit(0);
+                    isActive == FALSE;
                     break;
+                    // If this shows at all, something went incredibly wrong
                     default:
                     printf("An error has occured. Exiting..."); // You literally should not see this
                     exit(-1);
@@ -126,10 +139,8 @@ int main(int argc, char **argv) {
 
     } while(isActive == TRUE);
 
-
-
-
-
+    if (isActive == FALSE)
+        exit(0);
 
     return 0;
 }
