@@ -2,11 +2,14 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <pthread.h>
+#include <string.h>
 
 #include "queue.h"
 
-#define TRUE 1
-#define FALSE 0
+#define TRUE 0
+#define FALSE 1
+#define BUFFERSIZE 1024 // Not going to lie, I just looked up "what is a good buffer size" to determine this
+                        // and was recommended use of a base 2 number, of which 1024 was suggested
 
 
 
@@ -49,7 +52,10 @@ void *job_runner(void *arg) {
 int main(int argc, char **argv) {
     int p_cores;
     int isActive; // Determines if program should still be running
-    char *errFile; // Filename of the error output file
+    char *input[BUFFERSIZE]; // entirety of user input
+    char *usr_cmd; // variable to store user command
+    char *specProg; // Program specified to be used by the sumbit command
+    char *poss_cmds = {"submit", "showjobs", "quit"}; 
 
     // Program starting only accepts one argument.
     if (argc > 2) {
@@ -58,11 +64,20 @@ int main(int argc, char **argv) {
     }
     p_cores = atoi(argv[1]); // p_cores is argv[1], which is the number of core specifed by the user
     isActive = TRUE;
+    printf("Welcome. \nAvailable commands: \nsubmit <program> <arguments> | showjobs\n");
+    printf("Use command 'quit' to exit.\n");
 
+    int jobcnt = 0;
     do {
+        printf("Enter command. >> ");
+        if ((getline(&input, &BUFFERSIZE, stdin) != -1) && ((usr_cmd = strdup(strtok(input, " \n"))) != NULL)){
+            if (strcmp(usr_cmd, poss_cmds[0]) == TRUE) {
+                
+            }
+        }
 
 
-
+z
     } while(isActive == TRUE);
 
 
