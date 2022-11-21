@@ -9,7 +9,7 @@
 
 // Makes a job to add it to the queue
 job init_job(int id, char *command) {
-    struct job newJob;
+    job newJob;
 
     newJob.jobid = id;
     newJob.job_comm = command;

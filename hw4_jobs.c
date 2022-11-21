@@ -46,27 +46,7 @@ job jobList[MAXJOBS]; // Array of all jobs; made this global for use in job_hand
 */
 
 // Job-centric commands
-// Displays the jobs in the queue
-void show_jobs(int arrlen) {
-    int i;
 
-    // Call you a noob if the array is empty and you try to show jobs
-    if (jobList == NULL && arrlen == 0) {
-        printf("There are no jobs running or waiting.\n");
-    }
-    else {
-        // Formatting
-        printf("<Job ID>    <Command>           <Status>\n"); // 3 tabs btwn Command and Status
-        // Loop through array and print the jobs
-        for (i = 0; i < arrlen; i++) {
-            if (strcmp(jobList[i].status, "Complete.") != TRUE) {
-                printf("%d         %s           %s\n", jobList[i].jobid, jobList[i].job_comm, jobList[i].status);
-            }
-        }
-
-    }
-
-}
 // Handles the jobs, lol
 // In seriousness: performs operations on each job in the queue
 void *job_handler(void *arg) {
@@ -91,6 +71,7 @@ void *job_runner(void *arg) {
     char **argv; // Command for the job
     pid_t ch_pid; // Child's pid (the process id)
     int status;
+    int fdout, fderr;
 
     j_running += 1; // Add one job to the number of currently running jobs
     currJob->status = "Working...";
@@ -102,10 +83,10 @@ void *job_runner(void *arg) {
         // 0755 is read, execute, write access for all, only owner explicitly can write
         // Based off example from lecture 28
         if ((fdout = open(currJob->outFile, O_CREAT | O_APPEND | O_WRONLY, 0755)) == -1) {
-          printf("Error opening %d for redirection and output.\n", currJob->outFile);
+          printf("Error opening %s for redirection and output.\n", currJob->outFile);
         }
         if ((ferr = open(currJob->errFile, O_CREAT | O_APPEND | O_WRONLY, 0755)) == -1) {
-          printf("Error opening %d for redirection and output.\n", currJob->errFile);
+          printf("Error opening %s for redirection and output.\n", currJob->errFile);
         }
         dup2(fdout, 1);
         dup2(ferr, 2);
@@ -135,9 +116,9 @@ void *job_runner(void *arg) {
     // Parent process
     else if (ch_pid > 0){
         waitpid(ch_pid, &status, WUNTRACED);
-        currJob->status = "Complete." // Change job status to completed
+        currJob->status = "Complete."; // Change job status to completed
         // Report if the child process didn't exit normally
-        if (statis == -1) {
+        if (status == -1) {
             fprintf(stderr, "Error running the child process '%d'.\n", ch_pid);
         }
     }
@@ -166,7 +147,7 @@ int main(int argc, char **argv) {
     jobQueue = queue_init(MAXQUEUE); // initialize queue with job amount cap od MAXQUEUE (50 here)
 
     // Predefined stuff
-    char *poss_cmds = {"submit", "showjobs", "quit"}; 
+    char **poss_cmds = {"submit", "showjobs", "quit"}; 
 
     // Program starting only accepts one argument.
     if (argc > 2) {
@@ -191,7 +172,7 @@ int main(int argc, char **argv) {
     int i = 0;
     do {
         printf("Enter command. >> ");
-        if ((getline(&input, &BUFFERSIZE, stdin) != -1) && ((usr_cmd = strdup(strtok(input, " \n"))) != NULL)){
+        if ((getline(&input, BUFFERSIZE, stdin) != -1) && ((usr_cmd = strdup(strtok(input, " \n"))) != NULL)){
             // User command provided is "submit"
             if (strcmp(usr_cmd, poss_cmds[0]) == TRUE && i < 100) {
                 arg_cmd = strdup(strtok(NULL, " \n"));
