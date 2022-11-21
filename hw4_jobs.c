@@ -1,3 +1,20 @@
+/*
+ * @file hw4_jobs.c
+ * @author David Holmes
+ * @brief 
+ * @version 0.1
+ * @date 2022-11-20
+ * 
+ * A program to run and show running jobs in the command line
+ * Compiles with 'gcc -Wall queue.c hw4_jobs.c -lpthread -o hw4'
+ * Links the pthread library and the queue functions.
+ * Runs with './hw4 <number of cores>' e.g. './hw4 3'
+ * 
+ * Excuse the mass of comments everywhere, they're mostly for my own figuring out code placement
+ * 
+ */
+
+
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -14,6 +31,7 @@
 #define MAXQUEUE 50
 
 queue *jobQueue; // Made this a global variable due to being unsure of how to update it across methods
+int j_running // To keep track of how many jobs are running
 
 // job structure to hold information about each job being run
 // Implementation inspired by work on Lab 12, which also used structures to run a program on threads
@@ -27,6 +45,7 @@ typedef struct job {
     char *status; // The status of the job e.g., Running, Waiting
     char *outFile; // The file that stdout is redirected to <jobid>.out
     char *errFile; // The file that stderr is redirected to <jobid>.err
+    pthread_t jtid; // Associate job with a thread to run it
 
 } job;
 // makes a job to add it to the queue
@@ -48,15 +67,59 @@ void show_jobs() {
 
 }
 // Handles the jobs, lol
+// In seriousness: performs operations on each job in the queue
 void *job_handler(void *arg) {
+    int maxrun = (int) arg;
+    job *currJob;
 
+    // continously check for jobs
+    while (1) {
+        // Do job stuff as long as there isn't max jobs running and the queue isn't empty
+        if (j_running < maxrun && jobQueue->count > 0){
+            currJob = queue_delete(jobQueue); // Pop first job off the top of the queue
+            pthread_create(&currJob->jtid, NULL, job_runner, (void *)&currJob); // make a thread to run the job
+            pthread_detach(currJob->jtid); // Frees up resources; Use this over exit due to no threads needing to be joined
+        }
+    }
+
+    return (NULL); // Doing this because that's how it's done in the lab12 examples - why do we need to return NULL?
 }
 // runs each job
 void *job_runner(void *arg) {
+    struct job *currJob = (job *)arg; // Typecast back to get structure
+    char **argv; // Command for the job
+    pid_t ch_pid; // Child's pid (the process id)
 
+    j_running += 1; // Add one job to the number of currently running jobs
+    currJob->status = "Working...";
+
+    ch_pid = fork(); // Fork for execvp
+
+    // Child Process
+    if (ch_pid == TRUE) {
+        // 0755 is read, execute, write access for all, only owner explicitly can write
+        // Based off example from lecture 28
+        if ((fdout = open(currJob->outFile, O_CREAT | O_APPEND | O_WRONLY, 0755)) == -1) {
+          printf("Error opening %d for redirection and output.\n", currJob->outFile);
+        }
+        if ((ferr = open(currJob->errFile, O_CREAT | O_APPEND | O_WRONLY, 0755)) == -1) {
+          printf("Error opening %d for redirection and output.\n", currJob->errFile);
+        }
+        dup2(fdout, 1);
+        dup2(ferr, 2);
+
+        char *tempc = malloc(sizeof(char) * (strlen(currJob->job_comm) + 1))
+        strcpy(tempc, currJob->job_comm);
+
+        execvp();
+
+    }
+
+
+    return (NULL);
 }
 
-
+// Main function, initializes program and handles user input
 int main(int argc, char **argv) {
     // User input stuff
     int p_cores;
@@ -91,7 +154,7 @@ int main(int argc, char **argv) {
     printf("Welcome. \nAvailable commands: \nsubmit <program> <arguments> | showjobs\n");
     printf("Use command 'quit' to exit.\n");
 
-    pthread_create(&tid, NULL, job_handler, NULL); // Do stuff with all the jobs while the "UI" is running
+    pthread_create(&tid, NULL, job_handler, (void *)&p_cores); // Do stuff with all the jobs while the "UI" is running
 
     // The horrific block of user input handling
     int jobcnt = 0;
