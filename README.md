@@ -11,3 +11,5 @@ To run:
 > ./hw4 <number of cores>' e.g. './hw4 3
 
 The main program accepts the commands "submit", "showjobs", and "quit"
+
+Also: I was completely unable to get the enscript command to work for me, so I'm currently waiting for a different pdf converter to finish working. 
