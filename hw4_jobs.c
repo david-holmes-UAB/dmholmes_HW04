@@ -6,22 +6,26 @@
  * @date 2022-11-20
  * 
  * A program to run and show running jobs in the command line
- * Compiles with 'gcc -Wall queue.c hw4_jobs.c -lpthread -o hw4'
+ * Compiles with 'gcc -Wall jobstuff.c hw4_jobs.c -lpthread -o hw4'
  * Links the pthread library and the queue functions.
  * Runs with './hw4 <number of cores>' e.g. './hw4 3'
  * 
  * Excuse the mass of comments everywhere, they're mostly for my own figuring out code placement
+ * Fun fact: It took me a very long time to realize that I had to edit the queue to work with jobs
+ * A very long time.
  * 
  */
 
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <pthread.h>
 #include <string.h>
+#include <fcntl.h>
 
-#include "queue.h"
+#include "jobstuff.h"
 
 #define TRUE 0
 #define FALSE 1
@@ -31,7 +35,8 @@
 #define MAXQUEUE 50
 
 queue *jobQueue; // Made this a global variable due to being unsure of how to update it across methods
-int j_running // To keep track of how many jobs are running
+int j_running; // To keep track of how many jobs are running
+job jobList[MAXJOBS]; // Array of all jobs; made this global for use in job_handler
 
 // job structure to hold information about each job being run
 // Implementation inspired by work on Lab 12, which also used structures to run a program on threads
@@ -39,37 +44,33 @@ int j_running // To keep track of how many jobs are running
 / 
 /
 */
-typedef struct job {
-    int jobid; // Number of job in the queue
-    char *job_comm; // The command/name of the job
-    char *status; // The status of the job e.g., Running, Waiting
-    char *outFile; // The file that stdout is redirected to <jobid>.out
-    char *errFile; // The file that stderr is redirected to <jobid>.err
-    pthread_t jtid; // Associate job with a thread to run it
-
-} job;
-// makes a job to add it to the queue
-job *init_job(int id, char *command) {
-    struct job newJob;
-
-    newJob->jobid = id;
-    newJob->job_comm = command;
-    newJob->status = "Waiting...";
-    sprintf(newJob.outFile, "%d.out", id);
-    sprintf(newJob.errFile, "%d.out", id);
-
-    return newJob;
-}
 
 // Job-centric commands
 // Displays the jobs in the queue
-void show_jobs() {
+void show_jobs(int arrlen) {
+    int i;
+
+    // Call you a noob if the array is empty and you try to show jobs
+    if (jobList == NULL && arrlen == 0) {
+        printf("There are no jobs running or waiting.\n");
+    }
+    else {
+        // Formatting
+        printf("<Job ID>    <Command>           <Status>\n"); // 3 tabs btwn Command and Status
+        // Loop through array and print the jobs
+        for (i = 0; i < arrlen; i++) {
+            if (strcmp(jobList[i].status, "Complete.") != TRUE) {
+                printf("%d         %s           %s\n", jobList[i].jobid, jobList[i].job_comm, jobList[i].status);
+            }
+        }
+
+    }
 
 }
 // Handles the jobs, lol
 // In seriousness: performs operations on each job in the queue
 void *job_handler(void *arg) {
-    int maxrun = (int) arg;
+    int maxrun = (int *) arg;
     job *currJob;
 
     // continously check for jobs
@@ -89,6 +90,7 @@ void *job_runner(void *arg) {
     struct job *currJob = (job *)arg; // Typecast back to get structure
     char **argv; // Command for the job
     pid_t ch_pid; // Child's pid (the process id)
+    int status;
 
     j_running += 1; // Add one job to the number of currently running jobs
     currJob->status = "Working...";
@@ -108,13 +110,43 @@ void *job_runner(void *arg) {
         dup2(fdout, 1);
         dup2(ferr, 2);
 
-        char *tempc = malloc(sizeof(char) * (strlen(currJob->job_comm) + 1))
+        char *tempc = malloc(sizeof(char) * (strlen(currJob->job_comm) + 1));
         strcpy(tempc, currJob->job_comm);
 
-        execvp();
+        // Consulted the below link for behavior involving tokenizing a string into an argv array
+        // https://www.gnu.org/software/libc/manual/html_node/Finding-Tokens-in-a-String.html
+        char *token;
+        int i = 0; // Current position in argv array
+        while((token = strtok(tempc, " ")) != NULL) {
+            argv[i] = malloc(sizeof(char) * (strlen(token) + 1));
+            strcpy(argv[i], token);
+            ++i;
+            tempc = NULL; // NULL char is at the beginning of the future tokens, set tempc to NULL to look for next
+                          // string there.
+        }
 
+        // RUn the job
+        execvp(argv[0], argv);
+        
+        // Only runs if execvp fails
+        fprintf(stderr, "Failed execution of given command '%s'\n", argv[0]);
+        exit(-1);
+    }
+    // Parent process
+    else if (ch_pid > 0){
+        waitpid(ch_pid, &status, WUNTRACED);
+        currJob->status = "Complete." // Change job status to completed
+        // Report if the child process didn't exit normally
+        if (statis == -1) {
+            fprintf(stderr, "Error running the child process '%d'.\n", ch_pid);
+        }
+    }
+    else {
+        fprintf(stderr, "Error performing the fork() operation.\n");
+        exit(-1);
     }
 
+    j_running -= 1;
 
     return (NULL);
 }
@@ -131,7 +163,6 @@ int main(int argc, char **argv) {
     pthread_t tid; // obligatory tid
 
     // Job stuff
-    job jobList[MAXJOBS]; // Array of all jobs
     jobQueue = queue_init(MAXQUEUE); // initialize queue with job amount cap od MAXQUEUE (50 here)
 
     // Predefined stuff
@@ -157,7 +188,7 @@ int main(int argc, char **argv) {
     pthread_create(&tid, NULL, job_handler, (void *)&p_cores); // Do stuff with all the jobs while the "UI" is running
 
     // The horrific block of user input handling
-    int jobcnt = 0;
+    int i = 0;
     do {
         printf("Enter command. >> ");
         if ((getline(&input, &BUFFERSIZE, stdin) != -1) && ((usr_cmd = strdup(strtok(input, " \n"))) != NULL)){
@@ -177,7 +208,7 @@ int main(int argc, char **argv) {
                 switch(usr_cmd) {
                     // "showjobs"
                     case poss_cmds[1]:
-                    show_jobs();
+                    show_jobs(i);
                     break;
                     // "quit"
                     case poss_cmds[2]:
