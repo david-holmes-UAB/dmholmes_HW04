@@ -11,13 +11,14 @@
 #define BUFFERSIZE 1024 // Not going to lie, I just looked up "what is a good buffer size" to determine this
                         // and was recommended use of a base 2 number, of which 1024 was suggested
 #define MAXJOBS 100
+#define MAXQUEUE 50
 
-
+queue *jobQueue; // Made this a global variable due to being unsure of how to update it across methods
 
 // job structure to hold information about each job being run
 // Implementation inspired by work on Lab 12, which also used structures to run a program on threads
 /*
-/ W
+/ 
 /
 */
 typedef struct job {
@@ -28,7 +29,7 @@ typedef struct job {
     char *errFile; // The file that stderr is redirected to <jobid>.err
 
 } job;
-
+// makes a job to add it to the queue
 job *init_job(int id, char *command) {
     struct job newJob;
 
@@ -41,10 +42,16 @@ job *init_job(int id, char *command) {
     return newJob;
 }
 
+// Job-centric commands
+// Displays the jobs in the queue
+void show_jobs() {
+
+}
+// Handles the jobs, lol
 void *job_handler(void *arg) {
 
 }
-
+// runs each job
 void *job_runner(void *arg) {
 
 }
@@ -59,8 +66,11 @@ int main(int argc, char **argv) {
     char *arg_cmd; // Program specified to be used by the sumbit command
     char *arg_cmdArg; // I think this variable name is funny; used if the argument has arguments
 
+    // Job stuff
     job jobList[MAXJOBS]; // Array of all jobs
+    jobQueue = queue_init(MAXQUEUE); // initialize queue with job amount cap od MAXQUEUE (50 here)
 
+    // Predefined stuff
     char *poss_cmds = {"submit", "showjobs", "quit"}; 
 
     // Program starting only accepts one argument.
@@ -78,18 +88,42 @@ int main(int argc, char **argv) {
         printf("Enter command. >> ");
         if ((getline(&input, &BUFFERSIZE, stdin) != -1) && ((usr_cmd = strdup(strtok(input, " \n"))) != NULL)){
             // User command provided is "submit"
-            if (strcmp(usr_cmd, poss_cmds[0]) == TRUE) {
+            if (strcmp(usr_cmd, poss_cmds[0]) == TRUE && i < 100) {
                 arg_cmd = strdup(strtok(NULL, " \n"));
                 if ((arg_cmdArg = strdup(strtok(NULL, " \n"))) != NULL) {
                     strcat(arg_cmd, " ");
                     strcat(arg_cmd, arg_cmdArg);
                 }
-
+                jobList[i] = init_job(i, arg_cmd);
+                queue_insert(jobQueue, jobList + i);
+                printf("Job %d has been added to the queue.\n", i++);
+            }
+            // User command provided is "showjobs" or "quit"
+            else if (strcmp(usr_cmd, poss_cmds[1]) || strcmp(usr_cmd, poss_cmds[2])) {
+                switch(usr_cmd) {
+                    // "showjobs"
+                    case poss_cmds[1]:
+                    show_jobs();
+                    break;
+                    case poss_cmds[2]:
+                    printf("Exiting program.\n");
+                    exit(0);
+                    break;
+                    default:
+                    printf("An error has occured. Exiting..."); // You literally should not see this
+                    exit(-1);
+                }
+            }
+            else {
+                if (i > 99 && strcmp(usr_cmd, posscmds[0]) == TRUE) {
+                    printf("The maximum number of jobs in memory (%d) has been reached. Please restart the program if you would like to add more.\n", MAXJOBS);
+                }
+                else {
+                    printf("Unrecognized and/or unsupported command.\n");
+                }
             }
         }
 
-
-z
     } while(isActive == TRUE);
 
 
