@@ -10,6 +10,7 @@
 #define FALSE 1
 #define BUFFERSIZE 1024 // Not going to lie, I just looked up "what is a good buffer size" to determine this
                         // and was recommended use of a base 2 number, of which 1024 was suggested
+#define MAXJOBS 100
 
 
 
@@ -50,11 +51,16 @@ void *job_runner(void *arg) {
 
 
 int main(int argc, char **argv) {
+    // User input stuff
     int p_cores;
     int isActive; // Determines if program should still be running
     char *input[BUFFERSIZE]; // entirety of user input
     char *usr_cmd; // variable to store user command
-    char *specProg; // Program specified to be used by the sumbit command
+    char *arg_cmd; // Program specified to be used by the sumbit command
+    char *arg_cmdArg; // I think this variable name is funny; used if the argument has arguments
+
+    job jobList[MAXJOBS]; // Array of all jobs
+
     char *poss_cmds = {"submit", "showjobs", "quit"}; 
 
     // Program starting only accepts one argument.
@@ -71,8 +77,14 @@ int main(int argc, char **argv) {
     do {
         printf("Enter command. >> ");
         if ((getline(&input, &BUFFERSIZE, stdin) != -1) && ((usr_cmd = strdup(strtok(input, " \n"))) != NULL)){
+            // User command provided is "submit"
             if (strcmp(usr_cmd, poss_cmds[0]) == TRUE) {
-                
+                arg_cmd = strdup(strtok(NULL, " \n"));
+                if ((arg_cmdArg = strdup(strtok(NULL, " \n"))) != NULL) {
+                    strcat(arg_cmd, " ");
+                    strcat(arg_cmd, arg_cmdArg);
+                }
+
             }
         }
 
